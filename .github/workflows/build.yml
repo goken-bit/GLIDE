@@ -1,0 +1,93 @@
+name: GLang Build Service
+
+on:
+  repository_dispatch:
+    types: [glang-build]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: glang-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang pkg-config libsdl2-dev
+
+      - name: Fetch GLang compiler
+        run: |
+          git clone --depth 1 https://github.com/${GITHUB_REPOSITORY_OWNER}/GLang "${RUNNER_TEMP}/glang"
+
+      - name: Write source
+        run: |
+          ID=$(jq -r '.client_payload.id' "$GITHUB_EVENT_PATH")
+          jq -r '.client_payload.code' "$GITHUB_EVENT_PATH" > main.g
+          echo "ID=$ID" >> "$GITHUB_ENV"
+
+      - name: Compile
+        run: |
+          cd "${RUNNER_TEMP}/glang"
+          {
+            echo "run-${{ github.run_id }}"
+            set +e
+            python3 compiler/glangc.py check /home/runner/work/*/*/main.g > check.txt 2>&1
+            echo "--- check ---"
+            cat check.txt
+          } > "${RUNNER_TEMP}/result.txt"
+
+      - name: Build binary
+        id: build
+        run: |
+          cd "${RUNNER_TEMP}/glang"
+          set +e
+          python3 compiler/glangc.py build /home/runner/work/*/*/main.g \
+            > "${RUNNER_TEMP}/build.txt" 2>&1
+          EC=$?
+          if [ $EC -eq 0 ]; then
+            cp /home/runner/work/*/*/main "${RUNNER_TEMP}/main" 2>/dev/null
+            echo "BUILD_OK=1" >> "$GITHUB_ENV"
+          else
+            cat "${RUNNER_TEMP}/build.txt" >> "${RUNNER_TEMP}/result.txt"
+            echo "BUILD_OK=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run console programs
+        if: env.BUILD_OK == '1'
+        run: |
+          if ! grep -qE 'window\(|running\(\)' /home/runner/work/*/*/main.g; then
+            echo "--- run (console) ---" >> "${RUNNER_TEMP}/result.txt"
+            timeout 15 "${RUNNER_TEMP}/main" >> "${RUNNER_TEMP}/result.txt" 2>&1
+            echo "(exit $?)" >> "${RUNNER_TEMP}/result.txt"
+          else
+            echo "--- note: SDL game, binary only ---" >> "${RUNNER_TEMP}/result.txt"
+          fi
+
+      - name: Publish results
+        run: |
+          ID=$ID
+          git config user.name "glide-bot"
+          git config user.email "glide-bot@users.noreply.github.com"
+          if git ls-remote origin glide-results | grep -q .; then
+            git fetch origin glide-results
+            git switch glide-results
+          else
+            git switch --orphan glide-results
+          fi
+          git rm -rf . --ignore-unmatch || true
+          git clean -fdx
+          mkdir -p "results/$ID"
+          cp "${RUNNER_TEMP}/result.txt" "results/$ID/result.txt"
+          [ -f "${RUNNER_TEMP}/main" ] && cp "${RUNNER_TEMP}/main" "results/$ID/main"
+          printf '%s' "$ID" > LATEST.txt
+          git add -A
+          git commit -m "build $ID"
+          git push -f origin HEAD:glide-results
