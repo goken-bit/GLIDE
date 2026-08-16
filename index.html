@@ -217,11 +217,37 @@ $("saveBtn").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
-async function pollForBuild(id, tries) {
+async function apiContents(repo, token, path) {
+  const r = await fetch("https://api.github.com/repos/" + repo + "/contents/" + path + "?ref=glide-results", {
+    headers: { "Authorization": "token " + token, "Accept": "application/vnd.github+json" }
+  });
+  if (!r.ok) throw new Error("api " + r.status);
+  const j = await r.json();
+  return j.encoding === "base64"
+    ? Uint8Array.from(atob(j.content), c => c.charCodeAt(0))
+    : j.content;
+}
+
+async function fetchResult(repo, token, id) {
+  const url = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/result.txt";
+  try {
+    const r = await fetch(url + "?t=" + Date.now());
+    if (!r.ok) throw new Error();
+    const t = await r.text();
+    return /404: Not Found/.test(t) ? null : t;
+  } catch (e) {
+    const c = await apiContents(repo, token, "results/" + id + "/result.txt");
+    return c instanceof Uint8Array ? new TextDecoder().decode(c) : c;
+  }
+}
+
+async function pollForBuild(repo, token, id, tries) {
   for (let i = 0; i < tries; i++) {
     await new Promise(res => setTimeout(res, 2500));
-    const r = await fetch("https://raw.githubusercontent.com/" + $("repo").value.trim() + "/glide-results/" + id + "/result.txt?t=" + Date.now());
-    if (r.ok) return await r.text();
+    try {
+      const t = await fetchResult(repo, token, id);
+      if (t !== null) return t;
+    } catch (e) { /* not ready yet */ }
   }
   return null;
 }
@@ -254,15 +280,30 @@ $("runBtn").addEventListener("click", async () => {
       throw new Error("dispatch " + dispatch.status + ": " + (e.message || "failed"));
     }
     log("Dispatched. Waiting for the workflow result (≤ ~90 s) …", "dim");
-    const res = await pollForBuild(id, 42);
+    const res = await pollForBuild(repo, token, id, 42);
     if (res === null) { status("Timed out"); log("Timed out waiting for result.txt — check the Actions run.", "err"); return; }
     log(res, /^Error|error:|Parse error|Codegen error|Compile error/.test(res) ? "err" : "ok");
     status("Build " + id + " done");
     const dl = $("dl");
     dl.hidden = false;
-    dl.href = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/main" +
-      "?download=" + id + ".bin";
     dl.textContent = "Download binary (" + id + ")";
+    dl.onclick = async ev => {
+      ev.preventDefault();
+      const rawUrl = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/main";
+      try {
+        const head = await fetch(rawUrl, { method: "HEAD" });
+        if (head.ok) { location.href = rawUrl + "?download=" + id + ".bin"; return; }
+      } catch (e) { /* fall through to API */ }
+      try {
+        const bin = await apiContents(repo, token, "results/" + id + "/main");
+        const blob = new Blob([bin], { type: "application/octet-stream" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = id + ".bin";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e2) { log("Binary download failed: " + e2, "err"); }
+    };
   } catch (e) {
     status("Build failed");
     log(String(e.message || e), "err");
