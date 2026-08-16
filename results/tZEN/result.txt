@@ -1,0 +1,7 @@
+run-31932214420
+platform: linux/x86_64 (ELF) — on Windows run via WSL/MSYS2, or locally with glangc
+--- check ---
+OK
+--- run (console) ---
+zen ok
+(exit 0)

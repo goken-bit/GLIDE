@@ -1,4 +1,0 @@
-run-31929425851
---- check ---
-OK
---- note: SDL game, binary only ---
