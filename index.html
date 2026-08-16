@@ -89,8 +89,9 @@
   #editorfallback {
     position: absolute; inset: 0; display: none;
     background: var(--editor); color: var(--fg); border: 0; padding: 16px;
-    font: 13px/1.6 var(--mono); resize: none; outline: none;
+    font: 13px/1.6 var(--mono); resize: none; outline: none; z-index: 2;
   }
+  #editorfallback::placeholder { color: var(--muted); }
   #hint {
     position: absolute; right: 14px; bottom: 10px;
     font-size: 11px; color: var(--muted); background: rgba(15,17,21,.85);
@@ -215,12 +216,15 @@ const $ = id => document.getElementById(id);
 
 let editor = null;
 try {
+  if ((navigator.maxTouchPoints || 0) > 0) throw new Error("touch");
   editor = CodeMirror.fromTextArea($("src"), {
     mode: "glang", theme: "monokai", lineNumbers: true,
     indentUnit: 4, tabSize: 4, lineWrapping: true
   });
 } catch (e) {
+  $("editor").style.display = "none";
   $("editorfallback").style.display = "block";
+  $("hint").textContent = "Basic editor — highlighting off";
 }
 const getValue = () => editor ? editor.getValue() : $("editorfallback").value;
 const setValue = v => (editor ? editor.setValue(v) : ($("editorfallback").value = v));
