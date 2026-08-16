@@ -1,0 +1,6 @@
+run-31929200432
+--- check ---
+OK
+--- run (console) ---
+hi
+(exit 0)
