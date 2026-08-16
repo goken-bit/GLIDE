@@ -48,4 +48,4 @@ No servers, no databases — the "compiler server" *is* GitHub Actions.
   ~50 KB.
 - One build at a time (concurrency group); results land in order.
 - `glide-results` is a scratch branch holding every build's binary — prune it whenever.
-- The editor needs internet for the CodeMirror CDN.
+- CodeMirror is vendored in `vendor/` — the IDE is fully self-contained (no CDN).

@@ -4,126 +4,226 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GLIDE — GLang IDE</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+<link rel="stylesheet" href="vendor/codemirror.min.css">
+<link rel="stylesheet" href="vendor/theme/monokai.min.css">
 <style>
   :root {
-    --bg: #1e1e1e;
-    --panel: #252526;
-    --border: #333;
-    --fg: #d4d4d4;
-    --accent: #4caf50;
-    --error: #f0625f;
+    --bg: #0f1115;
+    --panel: #16181d;
+    --editor: #17181c;
+    --border: #26292f;
+    --fg: #d6d8de;
+    --muted: #757a84;
+    --accent: #52d273;
+    --accent-dim: #1d3325;
+    --warn: #e6b45a;
+    --danger: #e0625f;
+    --radius: 8px;
+    --mono: "JetBrains Mono", "SF Mono", Consolas, "Roboto Mono", monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
     background: var(--bg); color: var(--fg);
-    font: 14px/1.4 system-ui, sans-serif;
+    font: 13px/1.5 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
     display: flex; flex-direction: column;
   }
+
+  /* ---------- toolbar ---------- */
   header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 8px 14px; border-bottom: 1px solid var(--border);
-    background: var(--panel);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--border);
   }
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
-  header h1 span { color: #4caf50; }
-  header .spacer { flex: 1; }
-  header label { font-size: 12px; color: #9e9e9e; }
-  header input {
-    background: #1e1e1e; color: var(--fg); border: 1px solid var(--border);
-    border-radius: 4px; padding: 4px 8px; font-size: 12px; width: 240px;
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-right: auto; }
+  .brand b { font-size: 15px; letter-spacing: 0.4px; }
+  .brand b em { font-style: normal; color: var(--accent); }
+  .brand span { color: var(--muted); font-size: 11px; }
+  .field { display: flex; align-items: center; gap: 6px; }
+  .field label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); font-weight: 600;
   }
+  .field input {
+    background: var(--bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; font-family: var(--mono);
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  #repo { width: 185px; }
+  #pat { width: 120px; }
+  .patwrap { position: relative; display: inline-flex; }
+  .patwrap button {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: 0; background: none; color: var(--muted); cursor: pointer;
+    font-size: 12px; padding: 2px 4px;
+  }
+  .patwrap button:hover { color: var(--fg); }
+  #pat { padding-right: 26px; }
+  .actions { display: flex; gap: 8px; }
   button {
-    background: var(--accent); color: #0a0a0a; border: 0; border-radius: 4px;
-    padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 0; border-radius: 6px; cursor: pointer;
+    font: 600 12px/1 inherit; padding: 7px 14px;
+    background: #262a31; color: var(--fg);
+    transition: background .15s, transform .05s;
   }
-  button:disabled { opacity: 0.5; cursor: default; }
-  button#newBtn, button#runBtn, button#saveBtn {
-    background: #3a3a3a; color: var(--fg);
-  }
+  button:hover { background: #31363f; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #buildBtn { background: var(--accent); color: #0a0f0b; }
+  #buildBtn:hover { background: #5fe084; }
+
+  /* ---------- editor ---------- */
   #editorwrap { flex: 1; min-height: 0; position: relative; }
-  #editor { height: 100%; }
-  #editor .CodeMirror { height: 100%; font: 13px/1.5 "JetBrains Mono", Consolas, monospace; }
+  #editor { position: absolute; inset: 0; }
+  #editor .CodeMirror {
+    height: 100%; background: var(--editor);
+    font: 13px/1.6 var(--mono);
+  }
+  #editor .CodeMirror-gutters {
+    background: var(--editor); border-right: 1px solid var(--border);
+  }
+  #editor .CodeMirror-linenumber { color: #3c414b; }
+  #editor .CodeMirror-cursor { border-left: 2px solid var(--accent); }
+  #editorfallback {
+    position: absolute; inset: 0; display: none;
+    background: var(--editor); color: var(--fg); border: 0; padding: 16px;
+    font: 13px/1.6 var(--mono); resize: none; outline: none;
+  }
+  #hint {
+    position: absolute; right: 14px; bottom: 10px;
+    font-size: 11px; color: var(--muted); background: rgba(15,17,21,.85);
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    pointer-events: none;
+  }
+
+  /* ---------- output panel ---------- */
   #output {
-    height: 148px; display: flex; flex-direction: column;
+    height: 170px; display: flex; flex-direction: column;
     border-top: 1px solid var(--border); background: var(--panel);
   }
   #output .bar {
-    display: flex; gap: 10px; align-items: center; padding: 5px 14px;
-    font-size: 12px; color: #9e9e9e;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; color: var(--muted);
   }
+  #dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  #dot.busy { background: var(--warn); animation: pulse 1s infinite; }
+  #dot.ok { background: var(--accent); }
+  #dot.err { background: var(--danger); }
+  @keyframes pulse { 50% { opacity: .3; } }
+  #status { color: var(--fg); font-weight: 500; }
   #output .bar .spacer { flex: 1; }
-  #output .bar a { color: #81d4fa; }
-  #logs {
-    flex: 1; overflow: auto; padding: 6px 14px;
-    font: 12px/1.5 "JetBrains Mono", Consolas, monospace; white-space: pre-wrap;
+  #clearBtn {
+    border: 0; background: none; color: var(--muted); cursor: pointer;
+    font-size: 11px; padding: 2px 6px; border-radius: 4px;
   }
-  #logs .err { color: var(--error); }
+  #clearBtn:hover { color: var(--fg); background: var(--bg); }
+  #dl {
+    color: var(--accent); text-decoration: none;
+    border: 1px solid var(--accent-dim); border-radius: 6px;
+    padding: 3px 10px; font-size: 11px;
+  }
+  #dl:hover { background: var(--accent-dim); }
+  #logs {
+    flex: 1; overflow: auto; padding: 8px 16px;
+    font: 12px/1.7 var(--mono); white-space: pre-wrap; word-break: break-word;
+  }
+  #logs .err { color: var(--danger); }
   #logs .ok { color: var(--accent); }
-  #logs .dim { color: #9e9e9e; }
+  #logs .dim { color: var(--muted); }
+  #logs .sep { color: var(--border); border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; }
+  #empty { color: var(--muted); font-style: italic; }
+
+  @media (max-width: 760px) {
+    header { gap: 8px; padding: 10px 12px; }
+    .brand span { display: none; }
+    #repo { width: 100%; } #pat { width: 120px; }
+    .field { flex: 1 1 100%; }
+    .actions { flex: 1 1 100%; justify-content: flex-end; }
+    #output { height: 200px; }
+    #hint { display: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>GL<span>IDE</span></h1>
-  <button id="newBtn" title="Start a blank file">New</button>
-  <button id="saveBtn" title="Save as a local file">Save</button>
-  <div class="spacer"></div>
-  <button id="runBtn" title="Build on GitHub Actions">Build</button>
-  <label>repo</label>
-  <input id="repo" placeholder="owner/repo">
-  <label>PAT</label>
-  <input id="pat" type="password" placeholder="ghp_…" autocomplete="off">
+  <div class="brand"><b>GL<em>IDE</em></b><span>GLang playground</span></div>
+  <div class="field">
+    <label for="repo">Repository</label>
+    <input id="repo" placeholder="owner/repo" spellcheck="false" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="pat">Token</label>
+    <span class="patwrap">
+      <input id="pat" type="password" placeholder="ghp_…" autocomplete="off" spellcheck="false">
+      <button id="patToggle" type="button" title="Show / hide token">👁</button>
+    </span>
+  </div>
+  <div class="actions">
+    <button id="newBtn" title="Blank file">New</button>
+    <button id="saveBtn" title="Download main.g">Save</button>
+    <button id="buildBtn" title="Compile on GitHub Actions (Ctrl+Enter)">Build</button>
+  </div>
 </header>
-<div id="editorwrap"><textarea id="editor"></textarea></div>
+
+<div id="editorwrap">
+  <div id="editor"><textarea id="src"></textarea></div>
+  <textarea id="editorfallback" placeholder="…"></textarea>
+  <div id="hint">Ctrl+Enter to build</div>
+</div>
+
 <div id="output">
   <div class="bar">
+    <span id="dot"></span>
     <span id="status">Ready</span>
     <span class="spacer"></span>
-    <a id="dl" hidden href="#">Download binary</a>
+    <a id="dl" href="#" hidden>Download binary</a>
+    <button id="clearBtn" type="button">Clear</button>
   </div>
   <div id="logs"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="vendor/codemirror.min.js"></script>
 <script>
-// ---------- GLang syntax definition ----------
-const GLANG = {
-  keywords: "fn let mut const if elif else while for in return break continue struct loop step true false and or not import as match default pub int float bool string void char impl self virtual",
-  builtins: "window running dt width height frame_begin frame_end clear fill rect rect_outline circle circle_filled line point text text_int key_down key_pressed mouse_x mouse_y mouse_down mouse_clicked distance random randomf abs min max clamp fclamp print println print_raw int_to_string float_to_string i2s f2s",
-  types: "int float bool string void char"
-};
-
-// ---------- GLang mode for CodeMirror ----------
+// ---------- GLang CodeMirror mode ----------
 (function () {
-  const K = GLANG.keywords, B = GLANG.builtins, T = GLANG.types;
-  const m = {
+  const KW = "fn let mut const if elif else while for in return break continue struct loop step true false and or not import as match default pub int float bool string void char impl self virtual";
+  const B = "window running dt width height frame_begin frame_end clear fill rect rect_outline circle circle_filled line point text text_int key_down key_pressed mouse_x mouse_y mouse_down mouse_clicked distance random randomf abs min max clamp fclamp print println print_raw int_to_string float_to_string i2s f2s";
+  const T = "int float bool string void char";
+  CodeMirror.defineMode("glang", () => ({
     start: [
       { regex: /\/\/.*$/, token: "comment" },
       { regex: /\/\*[\s\S]*?\*\//, token: "comment" },
       { regex: /"(?:[^"\\]|\\.)*"/, token: "string" },
       { regex: /'(?:[^'\\]|\\.)?'/, token: "string" },
-      { regex: /\b\d+(?:\.\d+)?(?:f|F)?\b/, token: "number" },
-      { regex: new RegExp("\\b(?:" + T + ")\\b"), token: "type" },
-      { regex: new RegExp("\\b(?:" + K + ")\\b"), token: "keyword" },
-      { regex: new RegExp("\\b(?:" + B + ")\\b"), token: "builtin" },
-      { regex: /\b[A-Za-z_]\w*(?=\s*\()/, token: "def" },
-      { regex: /[{}()[\]]/, token: "bracket" },
+      { regex: /\b\d+(?:\.\d+)?\b/, token: "number" },
+      { regex: /(?:struct|impl)\s+([A-Za-z_]\w*)/, token: ["keyword", "def"] },
+      { regex: /\bfn\s+([A-Za-z_]\w*)/, token: ["keyword", "def"] },
+      { regex: new RegExp("\\b(?:" + T.split(" ").join("|") + ")\\b"), token: "type" },
+      { regex: new RegExp("\\b(?:" + KW.split(" ").join("|") + ")\\b"), token: "keyword" },
+      { regex: new RegExp("\\b(?:" + B.split(" ").join("|") + ")\\b"), token: "builtin" },
+      { regex: /[{}()[\],.]/, token: "bracket" },
       { regex: /[+\-*/%=<>!&|]+/, token: "operator" }
     ]
-  };
-  if (typeof CodeMirror !== "undefined") CodeMirror.defineMode("glang", () => m);
+  }));
 })();
 
 // ---------- IDE ----------
 const $ = id => document.getElementById(id);
-const editor = CodeMirror.fromTextArea($("editor"), {
-  mode: "glang", theme: "monokai", lineNumbers: true,
-  indentUnit: 4, tabSize: 4, autoCloseBrackets: false
-});
+
+let editor = null;
+try {
+  editor = CodeMirror.fromTextArea($("src"), {
+    mode: "glang", theme: "monokai", lineNumbers: true,
+    indentUnit: 4, tabSize: 4, lineWrapping: true
+  });
+} catch (e) {
+  $("editorfallback").style.display = "block";
+}
+const getValue = () => editor ? editor.getValue() : $("editorfallback").value;
+const setValue = v => (editor ? editor.setValue(v) : ($("editorfallback").value = v));
 
 const EXAMPLE = `// Pong — complete 2D game in GLang
 let screen_w = 800
@@ -160,8 +260,8 @@ fn game_update(dt: float) {
     bx = bx + bvx * dt
     by = by + bvy * dt
 
-    if by < ball_r      { by = ball_r;  bvy = -bvy }
-    if by > screen_h - ball_r { by = screen_h - ball_r; bvy = -bvy }
+    if by < ball_r                { by = ball_r;          bvy = -bvy }
+    if by > screen_h - ball_r     { by = screen_h - ball_r; bvy = -bvy }
 
     if bx - ball_r < px + paddle_w and bx + ball_r > px and by > py and by < py + paddle_h {
         bx = px + paddle_w + ball_r
@@ -187,35 +287,59 @@ fn main() {
     }
 }`;
 
+let emptyShown = true;
 function log(text, cls) {
   const l = $("logs");
+  if (emptyShown) {
+    const empty = $("empty");
+    if (empty) empty.remove();
+    emptyShown = false;
+  }
+  if (text === null) return;
   const div = document.createElement("div");
   if (cls) div.className = cls;
   div.textContent = text;
   l.appendChild(div);
   l.scrollTop = l.scrollHeight;
 }
-function status(text) { $("status").textContent = text; }
+function status(text, dot) {
+  $("status").textContent = text;
+  $("dot").className = dot || "";
+}
 
-("repo", "pat").forEach(k => {
+function showEmpty() {
+  $("logs").innerHTML = "";
+  const empty = document.createElement("div");
+  empty.id = "empty";
+  empty.textContent = "Build output appears here — hit Build (or Ctrl+Enter).";
+  $("logs").appendChild(empty);
+  emptyShown = true;
+}
+
+// empty-state hint
+showEmpty();
+
+// persistence
+["repo", "pat"].forEach(k => {
   const el = $(k);
-  el.value = localStorage.getItem("glide:" + k) || "";
-  el.addEventListener("change", () => localStorage.setItem("glide:" + k, el.value.trim()));
+  el.value = localStorage.getItem("glide2:" + k) || "";
+  el.addEventListener("change", () => localStorage.setItem("glide2:" + k, el.value.trim()));
 });
-if (!editor.getValue()) editor.setValue(EXAMPLE);
-$("status").textContent = "Type code, then hit Build.";
+$("patToggle").addEventListener("click", () => {
+  const p = $("pat");
+  p.type = p.type === "password" ? "text" : "password";
+});
 
-$("newBtn").addEventListener("click", () => {
-  editor.setValue("");
-  editor.focus();
-});
+$("newBtn").addEventListener("click", () => { setValue(""); (editor || $("editorfallback")).focus(); });
 $("saveBtn").addEventListener("click", () => {
-  const blob = new Blob([editor.getValue()], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
+  const blob = new Blob([getValue()], { type: "text/plain" });
   const a = document.createElement("a");
-  a.href = url; a.download = "main.g"; a.click();
-  URL.revokeObjectURL(url);
+  a.href = URL.createObjectURL(blob);
+  a.download = "main.g";
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
+$("clearBtn").addEventListener("click", showEmpty);
 
 async function apiContents(repo, token, path) {
   const r = await fetch("https://api.github.com/repos/" + repo + "/contents/" + path + "?ref=glide-results", {
@@ -234,11 +358,10 @@ async function fetchResult(repo, token, id) {
     const r = await fetch(url + "?t=" + Date.now());
     if (!r.ok) throw new Error();
     const t = await r.text();
-    return /404: Not Found/.test(t) ? null : t;
-  } catch (e) {
-    const c = await apiContents(repo, token, "results/" + id + "/result.txt");
-    return c instanceof Uint8Array ? new TextDecoder().decode(c) : c;
-  }
+    if (!/404: Not Found/.test(t)) return t;
+  } catch (e) { /* fall through */ }
+  const c = await apiContents(repo, token, "results/" + id + "/result.txt");
+  return c instanceof Uint8Array ? new TextDecoder().decode(c) : c;
 }
 
 async function pollForBuild(repo, token, id, tries) {
@@ -252,21 +375,43 @@ async function pollForBuild(repo, token, id, tries) {
   return null;
 }
 
-$("runBtn").addEventListener("click", async () => {
+function downloadBinary(repo, token, id) {
+  const rawUrl = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/main";
+  fetch(rawUrl, { method: "HEAD" })
+    .then(r => {
+      if (r.ok) return r.ok ? rawUrl + "?download=" + id + ".bin" : null;
+      throw new Error();
+    })
+    .catch(() => apiContents(repo, token, "results/" + id + "/main"))
+    .then(bin => {
+      if (typeof bin === "string") { window.open(bin, "_blank"); return; }
+      const blob = new Blob([bin], { type: "application/octet-stream" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = id + ".bin";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(e => log("Binary download failed: " + e, "err"));
+}
+
+async function build() {
   const repo = $("repo").value.trim();
   const token = $("pat").value.trim();
-  const src = editor.getValue();
-  if (!repo) return log("Set your repo (owner/name) and PAT first.", "err");
-  if (!token) return log("Paste a PAT with repo scope (stored only in this browser).", "err");
-  if (!src.trim()) return log("Nothing to build.", "err");
+  const src = getValue();
+  if (!repo) return log("Set your repository (owner/name) and token first.", "err");
+  if (!token) return log("Paste a token with repo scope (kept only in this browser).", "err");
+  if (!src.trim()) return log("Nothing to build — the editor is empty.", "err");
 
-  $("runBtn").disabled = true;
+  $("buildBtn").disabled = true;
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  log("Dispatching build " + id + " to " + repo + " …");
-  status("Building " + id + " …");
+  log("── Dispatch " + id + " → " + repo, "sep");
+  log("Building…", "dim");
+  status("Building " + id + "…", "busy");
+  $("dl").hidden = true;
 
   try {
-    const dispatch = await fetch("https://api.github.com/repos/" + repo + "/dispatches", {
+    const res = await fetch("https://api.github.com/repos/" + repo + "/dispatches", {
       method: "POST",
       headers: {
         "Authorization": "token " + token,
@@ -275,42 +420,37 @@ $("runBtn").addEventListener("click", async () => {
       },
       body: JSON.stringify({ event_type: "glang-build", client_payload: { id, code: src } })
     });
-    if (!dispatch.ok) {
-      const e = await dispatch.json();
-      throw new Error("dispatch " + dispatch.status + ": " + (e.message || "failed"));
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error("dispatch " + res.status + ": " + (e.message || "failed"));
     }
-    log("Dispatched. Waiting for the workflow result (≤ ~90 s) …", "dim");
-    const res = await pollForBuild(repo, token, id, 42);
-    if (res === null) { status("Timed out"); log("Timed out waiting for result.txt — check the Actions run.", "err"); return; }
-    log(res, /^Error|error:|Parse error|Codegen error|Compile error/.test(res) ? "err" : "ok");
-    status("Build " + id + " done");
-    const dl = $("dl");
-    dl.hidden = false;
-    dl.textContent = "Download binary (" + id + ")";
-    dl.onclick = async ev => {
-      ev.preventDefault();
-      const rawUrl = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/main";
-      try {
-        const head = await fetch(rawUrl, { method: "HEAD" });
-        if (head.ok) { location.href = rawUrl + "?download=" + id + ".bin"; return; }
-      } catch (e) { /* fall through to API */ }
-      try {
-        const bin = await apiContents(repo, token, "results/" + id + "/main");
-        const blob = new Blob([bin], { type: "application/octet-stream" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = id + ".bin";
-        a.click();
-        URL.revokeObjectURL(a.href);
-      } catch (e2) { log("Binary download failed: " + e2, "err"); }
-    };
+    const out = await pollForBuild(repo, token, id, 42);
+    if (out === null) {
+      status("Timed out", "err");
+      return log("Timed out waiting for the result — check the Actions run.", "err");
+    }
+    const fail = /^(Error|Parse error|Codegen error|Compile error)/m.test(out);
+    log(out, fail ? "err" : "ok");
+    status("Build " + id + (fail ? " failed" : " succeeded"), fail ? "err" : "ok");
+    if (!fail) {
+      const dl = $("dl");
+      dl.hidden = false;
+      dl.onclick = ev => { ev.preventDefault(); downloadBinary(repo, token, id); };
+    }
   } catch (e) {
-    status("Build failed");
+    status("Build failed", "err");
     log(String(e.message || e), "err");
   } finally {
-    $("runBtn").disabled = false;
+    $("buildBtn").disabled = false;
   }
+}
+
+$("buildBtn").addEventListener("click", build);
+document.addEventListener("keydown", ev => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") { ev.preventDefault(); build(); }
 });
+
+if (!getValue()) setValue(EXAMPLE);
 </script>
 </body>
 </html>
