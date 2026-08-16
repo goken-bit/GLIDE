@@ -215,8 +215,11 @@
 const $ = id => document.getElementById(id);
 
 let editor = null;
+const coarseMobile = (navigator.maxTouchPoints || 0) > 0 &&
+  matchMedia("(pointer: coarse)").matches &&
+  matchMedia("(max-width: 900px)").matches;
 try {
-  if ((navigator.maxTouchPoints || 0) > 0) throw new Error("touch");
+  if (coarseMobile) throw new Error("touch");
   editor = CodeMirror.fromTextArea($("src"), {
     mode: "glang", theme: "monokai", lineNumbers: true,
     indentUnit: 4, tabSize: 4, lineWrapping: true
@@ -323,11 +326,15 @@ function showEmpty() {
 // empty-state hint
 showEmpty();
 
-// persistence
+// persistence (Zen/Firefox private & strict modes can block localStorage)
+const store = {
+  get: k => { try { return localStorage.getItem("glide2:" + k) || ""; } catch (e) { return ""; } },
+  set: (k, v) => { try { localStorage.setItem("glide2:" + k, v); } catch (e) { /* ignore */ } }
+};
 ["repo", "pat"].forEach(k => {
   const el = $(k);
-  el.value = localStorage.getItem("glide2:" + k) || "";
-  el.addEventListener("change", () => localStorage.setItem("glide2:" + k, el.value.trim()));
+  el.value = store.get(k);
+  el.addEventListener("change", () => store.set(k, el.value.trim()));
 });
 $("patToggle").addEventListener("click", () => {
   const p = $("pat");
@@ -379,22 +386,29 @@ async function pollForBuild(repo, token, id, tries) {
   return null;
 }
 
+function saveUrl(url, name) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function downloadBinary(repo, token, id) {
   const rawUrl = "https://raw.githubusercontent.com/" + repo + "/glide-results/" + id + "/main";
   fetch(rawUrl, { method: "HEAD" })
     .then(r => {
-      if (r.ok) return r.ok ? rawUrl + "?download=" + id + ".bin" : null;
-      throw new Error();
+      if (!r.ok) throw new Error("raw");
+      saveUrl(rawUrl + "?download=" + id + ".bin", id + ".bin");
+      return null;
     })
     .catch(() => apiContents(repo, token, "results/" + id + "/main"))
     .then(bin => {
-      if (typeof bin === "string") { window.open(bin, "_blank"); return; }
+      if (!bin) return;
       const blob = new Blob([bin], { type: "application/octet-stream" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = id + ".bin";
-      a.click();
-      URL.revokeObjectURL(a.href);
+      saveUrl(URL.createObjectURL(blob), id + ".bin");
+      setTimeout(() => URL.revokeObjectURL(blob), 5000);
     })
     .catch(e => log("Binary download failed: " + e, "err"));
 }

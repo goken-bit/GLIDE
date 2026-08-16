@@ -38,6 +38,7 @@ jobs:
           cd "${RUNNER_TEMP}/glang"
           {
             echo "run-${{ github.run_id }}"
+            echo "platform: linux/x86_64 (ELF) — on Windows run via WSL/MSYS2, or locally with glangc"
             set +e
             python3 compiler/glangc.py check /home/runner/work/*/*/main.g > check.txt 2>&1
             echo "--- check ---"

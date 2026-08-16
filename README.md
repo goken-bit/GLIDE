@@ -38,9 +38,17 @@ No servers, no databases — the "compiler server" *is* GitHub Actions.
 
 - **Build** — dispatches a build, waits for the result (SDK games: binary only; console
   programs: binary + stdout).
-- **Download binary** — the compiled ELF from `glide-results/<id>/main`. Needs SDL2 on
-  your machine to run SDL games (on Termux: `pkg install sdl2`).
+- **Download binary** — the compiled ELF from `glide-results/<id>/main`. On **Windows**
+  (e.g. in the Zen browser) run it under **WSL or MSYS2**; Linux/macOS/macOS run it
+  directly. Needs SDL2 (Termux: `pkg install sdl2`, Debian/Ubuntu: `libsdl2-dev`).
 - New / Save — blank editor / download current file.
+
+## Browsers
+
+Works in any evergreen browser. Firefox/Zen specifics handled: storage is
+guarded for private/strict modes, downloads never rely on popups, and touch
+phones/tablets get a plain textarea while touchscreen laptops still get the
+highlighted editor.
 
 ## Notes / limits
 
